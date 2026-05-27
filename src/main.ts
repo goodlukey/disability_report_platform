@@ -1,5 +1,5 @@
 import { createApp } from 'vue'
-import App from 'App.vue'
+import App from './App.vue'
 
 // 引入 Vuetify 核心與樣式
 import 'vuetify/styles'
@@ -10,6 +10,9 @@ import * as directives from 'vuetify/directives'
 // 引入 Material Design Icons
 import { aliases, mdi } from 'vuetify/iconsets/mdi'
 import '@mdi/font/css/materialdesignicons.css'
+
+// 引入路由
+import router from './router'
 
 // 引入狀態管理 (Pinia)
 import { createPinia } from 'pinia'
@@ -29,5 +32,6 @@ const app = createApp(App)
 
 app.use(createPinia())
 app.use(vuetify)
+app.use(router)
 
 app.mount('#app')

@@ -1,21 +1,17 @@
 <template>
   <v-app>
-    <v-app-bar title="無障礙設施檢舉平台" color="primary"></v-app-bar>
-
+    <Topbar @toggle-drawer="drawerOpen = !drawerOpen" />
+    <Sidebar v-model="drawerOpen" />
     <v-main>
-      <v-container class="mt-5">
-        <v-btn color="success" size="large" prepend-icon="mdi-camera">
-          測試 Vuetify 按鈕
-        </v-btn>
-      </v-container>
+      <router-view />
     </v-main>
   </v-app>
 </template>
 
-<script setup>
-// 目前保持空白即可
-</script>
+<script setup lang="ts">
+import { ref } from 'vue'
+import Topbar from './components/layout/Topbar.vue'
+import Sidebar from './components/layout/Sidebar.vue'
 
-<style>
-/* 這裡不需要預設樣式了，讓 Vuetify 接管 */
-</style>
+const drawerOpen = ref(false)
+</script>
