@@ -4,27 +4,31 @@
       <v-card-title class="text-h6 pa-4">回報無障礙設施問題</v-card-title>
       <v-card-text class="d-flex flex-column ga-4">
 
-        <div>
-          <p class="text-subtitle-2 mb-2">上傳照片</p>
-          <ImageUpload v-model="imageFile" />
-        </div>
+        <v-select
+          v-model="form.line"
+          :items="lineOptions"
+          item-title="name"
+          item-value="id"
+          label="路線"
+          prepend-inner-icon="mdi-train"
+          variant="outlined"
+          @update:model-value="form.station = ''"
+        />
 
-        <v-btn
-          prepend-icon="mdi-crosshairs-gps"
-          :loading="locating"
-          @click="fetchLocation"
-        >
-          自動取得座標
-        </v-btn>
-
-        <div v-if="form.lat && form.lng" class="text-caption text-medium-emphasis">
-          緯度：{{ form.lat.toFixed(6) }}，經度：{{ form.lng.toFixed(6) }}
-        </div>
+        <v-select
+          v-model="form.station"
+          :items="stationOptions"
+          label="站名"
+          prepend-inner-icon="mdi-map-marker-radius"
+          variant="outlined"
+          :disabled="!form.line"
+          no-data-text="請先選擇路線"
+        />
 
         <v-text-field
           v-model="form.locationDescription"
           label="地點說明"
-          placeholder="例：台北車站 M4 出口"
+          placeholder="例：M4 出口、1 號月台、電梯旁"
           prepend-inner-icon="mdi-map-marker"
           variant="outlined"
         />
@@ -37,6 +41,11 @@
           rows="4"
           variant="outlined"
         />
+
+        <div>
+          <p class="text-subtitle-2 mb-2">上傳照片（最多三張）</p>
+          <ImageUpload v-model="imageFiles" />
+        </div>
 
         <v-btn
           color="primary"
@@ -58,48 +67,68 @@ import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import ImageUpload from '../components/report/ImageUpload.vue'
 import { useReportStore } from '../stores/reportStore'
+import { MRT_LINES } from '../data/mrtData'
 
 const router = useRouter()
 const store = useReportStore()
 
-const imageFile = ref<File | null>(null)
-const locating = ref(false)
+const imageFiles = ref<File[]>([])
 
 const form = ref({
-  lat: null as number | null,
-  lng: null as number | null,
+  line: '',
+  station: '',
   locationDescription: '',
   issueDescription: '',
 })
 
+const lineOptions = MRT_LINES.map(l => ({ id: l.id, name: l.name }))
+
+const stationOptions = computed(() => {
+  const line = MRT_LINES.find(l => l.id === form.value.line)
+  return line ? line.stations.map(s => s.name) : []
+})
+
+const selectedStation = computed(() => {
+  const line = MRT_LINES.find(l => l.id === form.value.line)
+  return line?.stations.find(s => s.name === form.value.station) ?? null
+})
+
+const isSubmitting = ref(false)
+
 const canSubmit = computed(() =>
-  imageFile.value &&
-  form.value.lat !== null &&
+  !isSubmitting.value &&
+  form.value.line &&
+  form.value.station &&
   form.value.locationDescription.trim() &&
-  form.value.issueDescription.trim()
+  form.value.issueDescription.trim() &&
+  imageFiles.value.length > 0
 )
 
-function fetchLocation() {
-  locating.value = true
-  navigator.geolocation.getCurrentPosition(
-    (pos) => {
-      form.value.lat = pos.coords.latitude
-      form.value.lng = pos.coords.longitude
-      locating.value = false
-    },
-    () => { locating.value = false }
-  )
-}
+async function submit() {
+  if (!canSubmit.value || !selectedStation.value) return
+  
+  isSubmitting.value = true
+  const lineName = MRT_LINES.find(l => l.id === form.value.line)?.name ?? form.value.line
 
-function submit() {
-  if (!canSubmit.value) return
-  store.addReport({
-    imageUrl: URL.createObjectURL(imageFile.value!),
-    lat: form.value.lat!,
-    lng: form.value.lng!,
-    locationDescription: form.value.locationDescription,
-    issueDescription: form.value.issueDescription,
+  const formData = new FormData()
+  formData.append('line', lineName)
+  formData.append('station', form.value.station)
+  formData.append('lat', selectedStation.value.lat.toString())
+  formData.append('lng', selectedStation.value.lng.toString())
+  formData.append('locationDescription', form.value.locationDescription)
+  formData.append('issueDescription', form.value.issueDescription)
+  
+  imageFiles.value.forEach((file) => {
+    formData.append('images', file)
   })
-  router.push('/map')
+
+  const success = await store.addReport(formData)
+  
+  isSubmitting.value = false
+  if (success) {
+    router.push('/map')
+  } else {
+    alert('提交失敗，請檢查後端連線')
+  }
 }
 </script>

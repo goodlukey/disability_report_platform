@@ -6,7 +6,7 @@
     <!-- Marker detail popup -->
     <v-dialog v-model="dialog" max-width="400">
       <v-card v-if="selected">
-        <v-img :src="selected.imageUrl" height="200" cover />
+        <v-img :src="selected.imageUrls[0]" height="200" cover />
         <v-card-title>{{ selected.locationDescription }}</v-card-title>
         <v-card-text>{{ selected.issueDescription }}</v-card-text>
         <v-card-actions>
@@ -37,6 +37,7 @@ async function initMap() {
   if (!mapContainer.value || !GOOGLE_MAPS_API_KEY) return
 
   await loadGoogleMapsScript()
+  await store.fetchReports() // Fetch data from backend
 
   map = new google.maps.Map(mapContainer.value, {
     center: { lat: 25.0478, lng: 121.5319 }, // Taipei
