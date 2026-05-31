@@ -18,6 +18,7 @@
 - **模組規範:** ESM (ECMAScript Modules)
 - **執行工具:** `tsx` (TypeScript Execution)
 - **資料庫:** PostgreSQL (託管於 Supabase)
+- **外部 API:** TDX (Transport Data eXchange) API - 用於獲取捷運線路與車站即時座標
 - **圖片儲存:** Supabase Storage (Bucket: `report-images`)
 - **文件處理:** Multer (Memory Storage)
 
@@ -26,42 +27,46 @@
 disability_report_platform/
 ├── server/                 # 後端專案
 │   ├── src/
-│   │   ├── index.ts        # API 主程式 (Express, Supabase SDK)
-│   │   ├── db.ts           # PostgreSQL 連線池 (pg library)
+│   │   ├── routes/         # API 路由模組
+│   │   │   ├── reports.ts  # 回報相關 API
+│   │   │   └── mrtLines.ts # 捷運資料 API (TDX 串接)
+│   │   ├── index.ts        # 入口程式
+│   │   ├── db.ts           # PostgreSQL 連線池
+│   │   ├── supabase.ts     # Supabase SDK 初始化
+│   │   ├── tdx.ts          # TDX API 整合工具 (Auth & Fetch)
 │   │   └── test-db.ts      # 資料庫連線測試工具
-│   ├── .env                # 環境變數 (DB 密鑰, Supabase URL)
-│   ├── package.json        # 依賴與 tsx 腳本
-│   └── schema.sql          # 資料庫資料表定義
+│   ├── .env                # 環境變數 (DB, Supabase, TDX)
+│   ├── package.json
+│   └── schema.sql
 ├── src/                    # 前端專案
-│   ├── components/         # 共用組件 (Layout, ImageUpload)
-│   ├── views/              # 頁面 (MapView, ReportView)
-│   ├── stores/             # Pinia Store (與後端同步)
-│   ├── data/               # 靜態資料 (MRT 站點座標)
-│   └── App.vue             # 入口組件
+│   ├── components/
+│   ├── views/
+│   │   ├── MapView.vue     # 地圖視覺化頁面
+│   │   └── ReportView.vue  # 回報表單頁面 (動態載入車站)
+│   ├── stores/
+│   ├── App.vue
+│   └── ...
 └── .env                    # 前端環境變數 (Google Maps API Key)
 ```
 
 ## 4. 當前開發進度 (Progress)
 
 ### 已完成功能
-1.  **地圖檢視 (MapView):** 整合 Google Maps，能從後端讀取回報資料並渲染標記 (Markers)。點擊標記可查看詳情與圖片。
-2.  **問題回報 (ReportView):** 完整的表單，包含 MRT 路線/站點選擇、地點說明、問題描述。
-3.  **圖片上傳:** 自定義 `ImageUpload` 組件，支援相機/相簿選擇，並能預覽/刪除圖片。
-4.  **後端 API:** 
-    - `GET /api/reports`: 從 PostgreSQL 讀取所有回報。
-    - `POST /api/reports`: 處理多圖上傳，將圖片存至 Supabase Storage，並將網址與資料存入 DB。
-5.  **資料庫連線:** 已成功串接 Supabase 雲端 PostgreSQL，並處理好 ESM 與 TypeScript 的兼容性問題。
+1.  **後端架構重構:** 將 API 拆分為路由模組，提升維護性；抽象化 Supabase 與 TDX 服務邏輯。
+2.  **TDX API 整合:** 成功對接交通部 TDX 平台，能動態獲取台北捷運所有路線與站點座標，取代原本的靜態 JSON。
+3.  **動態表單:** `ReportView` 會根據後端提供的 TDX 資料生成選項，並在選擇站點時自動記錄精確的經緯度。
+4.  **地圖檢視優化:** 標記顯示更詳細的資訊（路線 + 站名），並統一後端傳回的經緯度格式 (Float)。
+5.  **圖片上傳與儲存:** 支援多圖上傳至 Supabase Storage 並將網址存回資料庫。
 
 ### 核心邏輯
-- **混合模式:** 使用 `pg` 庫進行 SQL 操作以學習後端基礎，同時使用 `supabase-js` SDK 處理複雜的圖片儲存業務。
-- **資料流:** 前端 `FormData` -> 後端 `Multer` -> `Supabase Storage` (存圖片) -> `SQL` (存網址) -> 回傳前端更新 `Pinia`。
+- **資料獲取:** 後端串接 TDX (Client Credentials 流) -> 快取機制 (24h) -> 前端 Fetch。
+- **資料流:** 前端選擇車站 (取得經緯度) -> 提交 FormData -> 後端上傳圖片至 Supabase -> 寫入 PostgreSQL -> 地圖端即時更新。
 
 ## 5. 下次啟動建議 (Next Steps)
-1.  **使用者回饋:** 加入 `v-snackbar` 或 `v-alert` 提示使用者提交成功或失敗。
-2.  **地圖優化:** 當使用者點擊地圖標記時，自動縮放到該位置。
-3.  **刪除功能:** 增加刪除回報的 API 與介面。
-4.  **手機定位:** 整合 HTML5 Geolocation API，自動定位使用者目前位置而非僅限 MRT 站點。
-5.  **部署:** 準備將後端部署至 Render 或 Fly.io 等平台。
+1.  **使用者回饋:** 加入 `v-snackbar` 提示提交狀態。
+2.  **地圖功能增強:** 點擊清單中的車站後，地圖自動平移 (Pan) 且縮放 (Zoom)。
+3.  **定位功能:** 整合 Geolocation API，讓使用者能回報非捷運站點的周邊問題。
+4.  **後台管理:** 實作管理介面以進行回報的審核或刪除。
 
 ---
-*最後更新日期: 2026年5月30日*
+*最後更新日期: 2026年5月31日*
