@@ -1,13 +1,12 @@
 <template>
   <div style="width: 100%; height: calc(100vh - 64px)">
-    <!-- Google Maps will mount here once API key is configured -->
     <div ref="mapContainer" style="width: 100%; height: 100%" />
 
-    <!-- Marker detail popup -->
     <v-dialog v-model="dialog" max-width="400">
       <v-card v-if="selected">
         <v-img :src="selected.imageUrls[0]" height="200" cover />
-        <v-card-title>{{ selected.locationDescription }}</v-card-title>
+        <v-card-title>{{ selected.line }} {{ selected.station }}</v-card-title>
+        <v-card-subtitle>{{ selected.locationDescription }}</v-card-subtitle>
         <v-card-text>{{ selected.issueDescription }}</v-card-text>
         <v-card-actions>
           <v-spacer />
@@ -27,7 +26,6 @@ const mapContainer = ref<HTMLElement | null>(null)
 const dialog = ref(false)
 const selected = ref<Report | null>(null)
 
-// Placeholder: replace GOOGLE_MAPS_API_KEY with your actual key
 const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string
 
 let map: google.maps.Map | null = null
@@ -35,16 +33,13 @@ const markerMap = new Map<string, google.maps.Marker>()
 
 async function initMap() {
   if (!mapContainer.value || !GOOGLE_MAPS_API_KEY) return
-
   await loadGoogleMapsScript()
-  await store.fetchReports() // Fetch data from backend
-
+  await store.fetchReports()
   map = new google.maps.Map(mapContainer.value, {
-    center: { lat: 25.0478, lng: 121.5319 }, // Taipei
+    center: { lat: 25.0478, lng: 121.5319 },
     zoom: 13,
-    mapId: "218c2a340c428625e411c884",
+    mapId: '218c2a340c428625e411c884',
   })
-
   renderMarkers()
 }
 
@@ -55,7 +50,7 @@ function renderMarkers() {
     const marker = new google.maps.Marker({
       map,
       position: { lat: report.lat, lng: report.lng },
-      title: report.locationDescription,
+      title: `${report.line} ${report.station}`,
     })
     marker.addListener('click', () => {
       selected.value = report

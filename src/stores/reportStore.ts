@@ -44,3 +44,4 @@ export const useReportStore = defineStore('report', () => {
 
   return { reports, fetchReports, addReport }
 })
+

@@ -12,6 +12,9 @@
           label="路線"
           prepend-inner-icon="mdi-train"
           variant="outlined"
+          :loading="linesLoading"
+          :disabled="linesLoading"
+          no-data-text="載入中..."
           @update:model-value="form.station = ''"
         />
 
@@ -21,7 +24,7 @@
           label="站名"
           prepend-inner-icon="mdi-map-marker-radius"
           variant="outlined"
-          :disabled="!form.line"
+          :disabled="!form.line || linesLoading"
           no-data-text="請先選擇路線"
         />
 
@@ -52,6 +55,7 @@
           size="large"
           block
           :disabled="!canSubmit"
+          :loading="isSubmitting"
           @click="submit"
         >
           送出回報
@@ -63,15 +67,21 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import ImageUpload from '../components/report/ImageUpload.vue'
 import { useReportStore } from '../stores/reportStore'
-import { MRT_LINES } from '../data/mrtData'
+
+const API_URL = 'http://localhost:3000/api'
+
+interface MrtStation { name: string; lat: number; lng: number }
+interface MrtLine { id: string; name: string; stations: MrtStation[] }
 
 const router = useRouter()
 const store = useReportStore()
 
+const mrtLines = ref<MrtLine[]>([])
+const linesLoading = ref(false)
 const imageFiles = ref<File[]>([])
 
 const form = ref({
@@ -81,15 +91,27 @@ const form = ref({
   issueDescription: '',
 })
 
-const lineOptions = MRT_LINES.map(l => ({ id: l.id, name: l.name }))
+onMounted(async () => {
+  linesLoading.value = true
+  try {
+    const res = await fetch(`${API_URL}/mrt-lines`)
+    mrtLines.value = await res.json()
+  } catch {
+    console.error('Failed to load MRT lines')
+  } finally {
+    linesLoading.value = false
+  }
+})
+
+const lineOptions = computed(() => mrtLines.value.map(l => ({ id: l.id, name: l.name })))
 
 const stationOptions = computed(() => {
-  const line = MRT_LINES.find(l => l.id === form.value.line)
+  const line = mrtLines.value.find(l => l.id === form.value.line)
   return line ? line.stations.map(s => s.name) : []
 })
 
 const selectedStation = computed(() => {
-  const line = MRT_LINES.find(l => l.id === form.value.line)
+  const line = mrtLines.value.find(l => l.id === form.value.line)
   return line?.stations.find(s => s.name === form.value.station) ?? null
 })
 
@@ -97,6 +119,7 @@ const isSubmitting = ref(false)
 
 const canSubmit = computed(() =>
   !isSubmitting.value &&
+  !linesLoading.value &&
   form.value.line &&
   form.value.station &&
   form.value.locationDescription.trim() &&
@@ -106,9 +129,9 @@ const canSubmit = computed(() =>
 
 async function submit() {
   if (!canSubmit.value || !selectedStation.value) return
-  
+
   isSubmitting.value = true
-  const lineName = MRT_LINES.find(l => l.id === form.value.line)?.name ?? form.value.line
+  const lineName = mrtLines.value.find(l => l.id === form.value.line)?.name ?? form.value.line
 
   const formData = new FormData()
   formData.append('line', lineName)
@@ -117,13 +140,10 @@ async function submit() {
   formData.append('lng', selectedStation.value.lng.toString())
   formData.append('locationDescription', form.value.locationDescription)
   formData.append('issueDescription', form.value.issueDescription)
-  
-  imageFiles.value.forEach((file) => {
-    formData.append('images', file)
-  })
+  imageFiles.value.forEach(file => formData.append('images', file))
 
   const success = await store.addReport(formData)
-  
+
   isSubmitting.value = false
   if (success) {
     router.push('/map')
