@@ -17,6 +17,7 @@
     "vuetify": "^4.0.7"
   },
   "devDependencies": {
+    "@types/google.maps": "^3.65.0",
     "@types/node": "^24.12.3",
     "@vitejs/plugin-vue": "^6.0.6",
     "@vue/tsconfig": "^0.9.1",
