@@ -64,6 +64,13 @@
       </v-card-text>
     </v-card>
   </v-container>
+
+  <v-snackbar v-model="snackbar" :color="snackbarColor" :timeout="snackbarTimeout">
+    {{ snackbarMessage }}
+    <template #actions>
+      <v-btn variant="text" @click="snackbar = false">關閉</v-btn>
+    </template>
+  </v-snackbar>
 </template>
 
 <script setup lang="ts">
@@ -117,6 +124,18 @@ const selectedStation = computed(() => {
 
 const isSubmitting = ref(false)
 
+const snackbar = ref(false)
+const snackbarMessage = ref('')
+const snackbarColor = ref('success')
+const snackbarTimeout = ref(3000)
+
+function showSnackbar(message: string, color: 'success' | 'error', timeout = 3000) {
+  snackbarMessage.value = message
+  snackbarColor.value = color
+  snackbarTimeout.value = timeout
+  snackbar.value = true
+}
+
 const canSubmit = computed(() =>
   !isSubmitting.value &&
   !linesLoading.value &&
@@ -146,9 +165,10 @@ async function submit() {
 
   isSubmitting.value = false
   if (success) {
-    router.push('/map')
+    showSnackbar('回報已送出！', 'success')
+    setTimeout(() => router.push('/map'), 1200)
   } else {
-    alert('提交失敗，請檢查後端連線')
+    showSnackbar('提交失敗，請檢查後端連線', 'error', -1)
   }
 }
 </script>

@@ -9,6 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@googlemaps/markerclusterer": "^2.6.2",
     "@mdi/font": "^7.4.47",
     "pinia": "^3.0.4",
     "vite-plugin-vuetify": "^2.1.3",

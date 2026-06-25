@@ -66,6 +66,7 @@
 <script setup lang="ts">
 import { ref, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
+import { MarkerClusterer, SuperClusterAlgorithm } from '@googlemaps/markerclusterer'
 import { useReportStore, type Report } from '../stores/reportStore'
 
 const store = useReportStore()
@@ -84,6 +85,7 @@ interface MrtLine { id: string; name: string; stations: MrtStation[] }
 const mrtLines = ref<MrtLine[]>([])
 let map: google.maps.Map | null = null
 const markerMap = new Map<string, google.maps.Marker>()
+let clusterer: MarkerClusterer | null = null
 
 function formatDate(date: Date | string) {
   return new Date(date).toLocaleDateString('zh-TW', {
@@ -121,8 +123,23 @@ function findNearestStation(lat: number, lng: number) {
   return nearest
 }
 
+function markerColor(count: number): string {
+  if (count >= 6) return '#B71C1C'  // red — high severity
+  if (count >= 3) return '#E65100'  // orange — moderate
+  return '#2E7D32'                  // green — low
+}
+
 function createSvgIcon(count: number): string {
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 36 36"><circle cx="18" cy="18" r="17" fill="#1565C0" stroke="white" stroke-width="2"/><text x="18" y="23" text-anchor="middle" fill="white" font-size="14" font-weight="bold" font-family="Arial,sans-serif">${count}</text></svg>`
+  const color = markerColor(count)
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48">
+  <defs>
+    <filter id="s" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="2" stdDeviation="2.5" flood-color="rgba(0,0,0,0.35)"/>
+    </filter>
+  </defs>
+  <circle cx="24" cy="24" r="21" fill="${color}" stroke="white" stroke-width="2.5" filter="url(#s)"/>
+  <text x="24" y="30" text-anchor="middle" fill="white" font-size="17" font-weight="bold" font-family="Arial,sans-serif">${count}</text>
+</svg>`
 }
 
 async function initMap() {
@@ -159,7 +176,7 @@ async function initMap() {
 }
 
 function clearMarkers() {
-  markerMap.forEach(m => m.setMap(null))
+  if (clusterer) { clusterer.clearMarkers(); clusterer = null }
   markerMap.clear()
 }
 
@@ -174,16 +191,16 @@ function renderMarkers() {
     groups.get(key)!.reports.push(report)
   })
 
+  const markers: google.maps.Marker[] = []
   groups.forEach(({ reports: gr, lat, lng }) => {
     const { line, station } = gr[0]
     const marker = new google.maps.Marker({
-      map,
       position: { lat, lng },
       title: `${line} ${station}`,
       icon: {
         url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(createSvgIcon(gr.length))}`,
-        scaledSize: new google.maps.Size(36, 36),
-        anchor: new google.maps.Point(18, 18),
+        scaledSize: new google.maps.Size(48, 48),
+        anchor: new google.maps.Point(24, 24),
       },
     })
     marker.addListener('click', () => {
@@ -193,6 +210,13 @@ function renderMarkers() {
       sheet.value = true
     })
     markerMap.set(`${line}__${station}`, marker)
+    markers.push(marker)
+  })
+
+  clusterer = new MarkerClusterer({
+    map,
+    markers,
+    algorithm: new SuperClusterAlgorithm({ maxZoom: 14, radius: 80 }),
   })
 }
 
